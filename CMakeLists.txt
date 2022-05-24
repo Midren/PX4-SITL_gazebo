@@ -46,6 +46,7 @@ option(SEND_ODOMETRY_DATA "Send Mavlink ODOMETRY msgs" OFF)
 ## System dependencies are found with CMake's conventions
 find_package(Boost 1.58 REQUIRED COMPONENTS system thread filesystem)
 find_package(gazebo REQUIRED)
+find_package(TBB REQUIRED)
 find_package(PkgConfig REQUIRED)
 pkg_search_module(GLIB REQUIRED glib-2.0)
 # Note: If using catkin, Python 2 is found since it points
@@ -137,6 +138,7 @@ foreach(ITR ${GAZEBO_INCLUDE_DIRS})
     set(PROTOBUF_IMPORT_DIRS "${ITR}/gazebo/msgs/proto")
   endif()
 endforeach()
+list(APPEND PROTOBUF_IMPORT_DIRS ; ${CMAKE_CURRENT_SOURCE_DIR})
 
 # PROTOBUF_IMPORT_DIRS has to be set before
 # find_package is called
@@ -184,6 +186,7 @@ include_directories(
   include
   ${Boost_INCLUDE_DIR}
   ${CMAKE_CURRENT_BINARY_DIR}
+  ${CMAKE_CURRENT_BINARY_DIR}/msgs
   ${EIGEN3_INCLUDE_DIRS}
   ${EIGEN3_INCLUDE_DIRS}/eigen3	# Workaround for Eigen3
   ${GAZEBO_INCLUDE_DIRS}
@@ -208,6 +211,7 @@ link_libraries(
   ${Boost_THREAD_LIBRARY_RELEASE}
   ${Boost_TIMER_LIBRARY_RELEASE}
   ${GAZEBO_LIBRARIES}
+  TBB::tbb
   ${OpenCV_LIBRARIES}
   )
 
@@ -403,7 +407,7 @@ set(plugins
   )
 
 foreach(plugin ${plugins})
-  target_link_libraries(${plugin} ${Boost_LIBRARIES} ${GAZEBO_LIBRARIES} ${TinyXML_LIBRARIES})
+  target_link_libraries(${plugin} ${Boost_LIBRARIES} ${GAZEBO_LIBRARIES} TBB::tbb ${TinyXML_LIBRARIES})
 endforeach()
 target_link_libraries(gazebo_opticalflow_plugin ${OpticalFlow_LIBS})
 
@@ -438,7 +442,7 @@ if (GSTREAMER_FOUND)
   if("${GAZEBO_VERSION}" VERSION_LESS "8.0")
     QT4_WRAP_CPP(headers_MOC include/gazebo_video_stream_widget.h)
     add_library(gazebo_video_stream_widget SHARED ${headers_MOC} src/gazebo_video_stream_widget.cpp)
-    target_link_libraries(gazebo_video_stream_widget ${GAZEBO_LIBRARIES} ${QT_LIBRARIES})
+    target_link_libraries(gazebo_video_stream_widget ${GAZEBO_LIBRARIES} TBB::tbb ${QT_LIBRARIES})
     set(plugins
       ${plugins}
       gazebo_video_stream_widget
@@ -447,7 +451,7 @@ if (GSTREAMER_FOUND)
   else()
     QT5_WRAP_CPP(headers_MOC include/gazebo_video_stream_widget.h)
     add_library(gazebo_video_stream_widget SHARED ${headers_MOC} src/gazebo_video_stream_widget.cpp)
-    target_link_libraries(gazebo_video_stream_widget ${GAZEBO_LIBRARIES} ${Qt5Core_LIBRARIES} ${Qt5Widgets_LIBRARIES} ${Qt5Test_LIBRARIES})
+    target_link_libraries(gazebo_video_stream_widget ${GAZEBO_LIBRARIES} TBB::tbb ${Qt5Core_LIBRARIES} ${Qt5Widgets_LIBRARIES} ${Qt5Test_LIBRARIES})
     set(plugins
       ${plugins}
       gazebo_video_stream_widget
@@ -458,7 +462,7 @@ endif()
 
 QT5_WRAP_CPP(headers_MOC2 include/gazebo_user_camera_plugin.h)
 add_library(gazebo_user_camera_plugin SHARED ${headers_MOC2} src/gazebo_user_camera_plugin.cpp)
-target_link_libraries(gazebo_user_camera_plugin ${GAZEBO_LIBRARIES} ${Qt5Core_LIBRARIES} ${Qt5Widgets_LIBRARIES} ${Qt5Test_LIBRARIES})
+target_link_libraries(gazebo_user_camera_plugin ${GAZEBO_LIBRARIES} TBB::tbb ${Qt5Core_LIBRARIES} ${Qt5Widgets_LIBRARIES} ${Qt5Test_LIBRARIES})
 set(plugins
   ${plugins}
   gazebo_user_camera_plugin
