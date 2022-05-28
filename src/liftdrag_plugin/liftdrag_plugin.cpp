@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <string>
+#include <filesystem>
 
 #include "common.h"
 #include "gazebo/common/Assert.hh"
@@ -24,13 +25,18 @@
 #include "gazebo/sensors/SensorManager.hh"
 #include "gazebo/transport/transport.hh"
 #include "gazebo/msgs/msgs.hh"
+
 #include "liftdrag_plugin/liftdrag_plugin.h"
+#include "liftdrag_plugin/dat_reader.h"
+#include "liftdrag_plugin/lookup_table.h"
 
 #include "Force.pb.h"
 
 using namespace gazebo;
+namespace fs = std::filesystem;
 
 GZ_REGISTER_MODEL_PLUGIN(LiftDragPlugin)
+
 
 /////////////////////////////////////////////////
 LiftDragPlugin::LiftDragPlugin() : cla(1.0), cda(0.01), cma(0.0), rho(1.2041)
@@ -99,11 +105,33 @@ void LiftDragPlugin::Load(physics::ModelPtr _model,
   if (_sdf->HasElement("cla"))
     this->cla = _sdf->Get<double>("cla");
 
+  if (_sdf->HasElement("cl_file")) {
+      fs::path cl_path = _sdf->Get<std::string>("cl_file");
+      gzdbg << "Path to C_L " << cl_path << std::endl;
+      auto reader = DatReader<double>(cl_path);
+      const auto& [indeces, values] = reader.read();
+      this->cl_table = LookUpTable<double>(indeces, values);
+  }
+
   if (_sdf->HasElement("cda"))
     this->cda = _sdf->Get<double>("cda");
 
+  if (_sdf->HasElement("cd_file")) {
+    fs::path cl_path = _sdf->Get<std::string>("cd_file");
+    auto reader = DatReader<double>(cl_path);
+    const auto& [indeces, values] = reader.read();
+    this->cd_table = LookUpTable<double>(indeces, values);
+  }
+
   if (_sdf->HasElement("cma"))
     this->cma = _sdf->Get<double>("cma");
+
+  if (_sdf->HasElement("cm_file")) {
+    fs::path cl_path = _sdf->Get<std::string>("cm_file");
+    auto reader = DatReader<double>(cl_path);
+    const auto& [indeces, values] = reader.read();
+    this->cm_table = LookUpTable<double>(indeces, values);
+  }
 
   if (_sdf->HasElement("alpha_stall"))
     this->alphaStall = _sdf->Get<double>("alpha_stall");
@@ -117,8 +145,8 @@ void LiftDragPlugin::Load(physics::ModelPtr _model,
   if (_sdf->HasElement("cma_stall"))
     this->cmaStall = _sdf->Get<double>("cma_stall");
 
-    if (_sdf->HasElement("cm_delta"))
-        this->cm_delta = _sdf->Get<double>("cm_delta");
+  if (_sdf->HasElement("cm_delta"))
+    this->cm_delta = _sdf->Get<double>("cm_delta");
 
   if (_sdf->HasElement("cp"))
     this->cp = _sdf->Get<ignition::math::Vector3d>("cp");
@@ -306,25 +334,26 @@ void LiftDragPlugin::OnUpdate()
   double q = 0.5 * this->rho * speedInLDPlane * speedInLDPlane;
 
   // compute cl at cp, check for stall, correct for sweep
-  double cl;
-  if (this->alpha > this->alphaStall)
-  {
-    cl = (this->cla * this->alphaStall +
-          this->claStall * (this->alpha - this->alphaStall))
-         * cosSweepAngle;
-    // make sure cl is still great than 0
-    cl = std::max(0.0, cl);
-  }
-  else if (this->alpha < -this->alphaStall)
-  {
-    cl = (-this->cla * this->alphaStall +
-          this->claStall * (this->alpha + this->alphaStall))
-         * cosSweepAngle;
-    // make sure cl is still less than 0
-    cl = std::min(0.0, cl);
-  }
-  else
-    cl = this->cla * this->alpha * cosSweepAngle;
+  double cl = this->cl_table.get(this->alpha).value_or(0);
+  //gzdbg << "C_L at point " << this->alpha*180.0/M_PI << " = " << cl << std::endl;
+  //if (this->alpha > this->alphaStall)
+  //{
+  //  cl = (this->cla * this->alphaStall +
+  //        this->claStall * (this->alpha - this->alphaStall))
+  //       * cosSweepAngle;
+  //  // make sure cl is still great than 0
+  //  cl = std::max(0.0, cl);
+  //}
+  //else if (this->alpha < -this->alphaStall)
+  //{
+  //  cl = (-this->cla * this->alphaStall +
+  //        this->claStall * (this->alpha + this->alphaStall))
+  //       * cosSweepAngle;
+  //  // make sure cl is still less than 0
+  //  cl = std::min(0.0, cl);
+  //}
+  //else
+  //  cl = this->cla * this->alpha * cosSweepAngle;
 
   // modify cl per control joint value
   double controlAngle;
@@ -343,21 +372,21 @@ void LiftDragPlugin::OnUpdate()
   ignition::math::Vector3d lift = cl * q * this->area * liftI;
 
   // compute cd at cp, check for stall, correct for sweep
-  double cd;
-  if (this->alpha > this->alphaStall)
-  {
-    cd = (this->cda * this->alphaStall +
-          this->cdaStall * (this->alpha - this->alphaStall))
-         * cosSweepAngle;
-  }
-  else if (this->alpha < -this->alphaStall)
-  {
-    cd = (-this->cda * this->alphaStall +
-          this->cdaStall * (this->alpha + this->alphaStall))
-         * cosSweepAngle;
-  }
-  else
-    cd = (this->cda * this->alpha) * cosSweepAngle;
+  double cd = this->cd_table.get(this->alpha).value_or(0);
+  //if (this->alpha > this->alphaStall)
+  //{
+  //  cd = (this->cda * this->alphaStall +
+  //        this->cdaStall * (this->alpha - this->alphaStall))
+  //       * cosSweepAngle;
+  //}
+  //else if (this->alpha < -this->alphaStall)
+  //{
+  //  cd = (-this->cda * this->alphaStall +
+  //        this->cdaStall * (this->alpha + this->alphaStall))
+  //       * cosSweepAngle;
+  //}
+  //else
+  //  cd = (this->cda * this->alpha) * cosSweepAngle;
 
   // make sure drag is positive
   cd = fabs(cd);
@@ -366,25 +395,25 @@ void LiftDragPlugin::OnUpdate()
   ignition::math::Vector3d drag = cd * q * this->area * dragDirection;
 
   // compute cm at cp, check for stall, correct for sweep
-  double cm;
-  if (this->alpha > this->alphaStall)
-  {
-    cm = (this->cma * this->alphaStall +
-          this->cmaStall * (this->alpha - this->alphaStall))
-         * cosSweepAngle;
-    // make sure cm is still great than 0
-    cm = std::max(0.0, cm);
-  }
-  else if (this->alpha < -this->alphaStall)
-  {
-    cm = (-this->cma * this->alphaStall +
-          this->cmaStall * (this->alpha + this->alphaStall))
-         * cosSweepAngle;
-    // make sure cm is still less than 0
-    cm = std::min(0.0, cm);
-  }
-  else
-    cm = this->cma * this->alpha * cosSweepAngle;
+  double cm = this->cm_table.get(this->alpha).value_or(0);
+  //if (this->alpha > this->alphaStall)
+  //{
+  //  cm = (this->cma * this->alphaStall +
+  //        this->cmaStall * (this->alpha - this->alphaStall))
+  //       * cosSweepAngle;
+  //  // make sure cm is still great than 0
+  //  cm = std::max(0.0, cm);
+  //}
+  //else if (this->alpha < -this->alphaStall)
+  //{
+  //  cm = (-this->cma * this->alphaStall +
+  //        this->cmaStall * (this->alpha + this->alphaStall))
+  //       * cosSweepAngle;
+  //  // make sure cm is still less than 0
+  //  cm = std::min(0.0, cm);
+  //}
+  //else
+  //  cm = this->cma * this->alpha * cosSweepAngle;
 
   // Take into account the effect of control surface deflection angle to Cm
   cm += this->cm_delta * controlAngle;

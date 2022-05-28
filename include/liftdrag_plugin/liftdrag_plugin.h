@@ -26,6 +26,8 @@
 #include "gazebo/transport/TransportTypes.hh"
 #include <ignition/math.hh>
 
+#include "liftdrag_plugin/lookup_table.h"
+
 #include "Wind.pb.h"
 
 namespace gazebo
@@ -61,16 +63,19 @@ namespace gazebo
     /// Lift = C_L * q * S
     /// where q (dynamic pressure) = 0.5 * rho * v^2
     protected: double cla;
+    protected: LookUpTable<double> cl_table;
 
     /// \brief Coefficient of Drag / alpha slope.
     /// Drag = C_D * q * S
     /// where q (dynamic pressure) = 0.5 * rho * v^2
     protected: double cda;
+    protected: LookUpTable<double> cd_table;
 
     /// \brief Coefficient of Moment / alpha slope.
     /// Moment = C_M * q * S
     /// where q (dynamic pressure) = 0.5 * rho * v^2
     protected: double cma;
+    protected: LookUpTable<double> cm_table;
 
     /// \brief angle of attack when airfoil stalls
     protected: double alphaStall;
