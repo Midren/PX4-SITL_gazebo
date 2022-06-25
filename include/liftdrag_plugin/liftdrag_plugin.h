@@ -62,35 +62,23 @@ namespace gazebo
     /// \brief Coefficient of Lift / alpha slope.
     /// Lift = C_L * q * S
     /// where q (dynamic pressure) = 0.5 * rho * v^2
-    protected: double cla;
     protected: LookUpTable<double> cl_table;
 
     /// \brief Coefficient of Drag / alpha slope.
     /// Drag = C_D * q * S
     /// where q (dynamic pressure) = 0.5 * rho * v^2
-    protected: double cda;
     protected: LookUpTable<double> cd_table;
 
     /// \brief Coefficient of Moment / alpha slope.
     /// Moment = C_M * q * S
     /// where q (dynamic pressure) = 0.5 * rho * v^2
-    protected: double cma;
     protected: LookUpTable<double> cm_table;
-
-    /// \brief angle of attack when airfoil stalls
-    protected: double alphaStall;
-
-    /// \brief Cl-alpha rate after stall
-    protected: double claStall;
-
-    /// \brief Cd-alpha rate after stall
-    protected: double cdaStall;
-
-    /// \brief Cm-alpha rate after stall
-    protected: double cmaStall;
 
     /// \breif Coefficient of Moment / control surface deflection angle slope
     protected: double cm_delta;
+    protected: LookUpTable<double> cl_flap_table;
+    protected: LookUpTable<double> cd_flap_table;
+    protected: LookUpTable<double> cm_flap_table;
 
     /// \brief: \TODO: make a stall velocity curve
     protected: double velocityStall;
@@ -108,6 +96,9 @@ namespace gazebo
 
     /// \brief effective planeform surface area
     protected: double area;
+
+    /// \brief effective planeform surface area of controlling aileron
+    protected: double control_area;
 
     /// \brief angle of sweep
     protected: double sweep;
@@ -136,10 +127,6 @@ namespace gazebo
     /// \brief Pointer to a joint that actuates a control surface for
     /// this lifting body
     protected: physics::JointPtr controlJoint;
-
-    /// \brief how much to change CL per radian of control surface joint
-    /// value.
-    protected: double controlJointRadToCL;
 
     /// \brief SDF for this plugin;
     protected: sdf::ElementPtr sdf;
